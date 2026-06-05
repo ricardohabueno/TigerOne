@@ -4,7 +4,8 @@
 set -e
 
 echo "=== 1. Atualizando pacotes do sistema ==="
-sudo apt update && sudo apt upgrade -y
+sudo apt update
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
 sudo apt install -y git python3-pip python3-venv python3-full curl build-essential
 
 echo "=== 2. Clonando o repositório TigerOne ==="
