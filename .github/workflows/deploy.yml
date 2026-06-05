@@ -1,0 +1,31 @@
+name: Deploy TigerOne to DigitalOcean VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: root
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          echo "=== 1. Entrando na pasta e puxando o código novo ==="
+          cd /root/TigerOne
+          git pull origin main
+
+          echo "=== 2. Atualizando dependências no ambiente virtual ==="
+          ./venv/bin/pip install -r requirements.txt
+
+          echo "=== 3. Reiniciando o serviço do TigerOne ==="
+          sudo systemctl restart tigerone
+
+          echo "=== Deploy finalizado com sucesso! ==="
