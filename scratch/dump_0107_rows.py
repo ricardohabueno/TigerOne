@@ -1,0 +1,75 @@
+import sys
+import os
+from playwright.sync_api import sync_playwright
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from backend.database import SessionLocal
+from backend.models import Settings
+
+def main():
+    db = SessionLocal()
+    settings = db.query(Settings).first()
+    db.close()
+    
+    if not settings:
+        print("Settings not found.")
+        return
+        
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        page = context.new_page()
+        
+        # Login
+        page.goto("https://admin.avec.beauty/tarantino/admin")
+        page.wait_for_selector('input[type="email"]')
+        page.fill('input[type="email"]', settings.avec_username)
+        page.fill('input[type="password"]', settings.avec_password)
+        page.click('button[data-testid="submit-button"]')
+        page.wait_for_timeout(10000)
+        
+        # Navigate to visual page
+        try:
+            page.goto("https://admin.avec.beauty/admin/relatorio/0107", wait_until='domcontentloaded', timeout=30000)
+            page.wait_for_timeout(3000)
+        except Exception as e:
+            print(f"Erro na navegação visual: {e}")
+            
+        # API request
+        api_url = f"https://admin.avec.beauty/admin/relatorios/listar?relatorio=0107&salao={settings.avec_salon_id or '4053'}&dias=90"
+        print(f"Fetching from {api_url}")
+        
+        response = context.request.get(
+            api_url,
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "application/json"
+            },
+            timeout=60000
+        )
+        
+        if response.ok:
+            data = response.json()
+            rows = data.get("aaData", [])
+            print(f"Retrieved {len(rows)} rows.")
+            
+            # Print first 20 rows that have non-empty values
+            printed = 0
+            for idx, row in enumerate(rows):
+                # Clean HTML tags to see clearly
+                import re
+                clean_row = [re.sub(r'<[^>]*>', '', str(val)).strip() if val is not None else None for val in row]
+                
+                # Check if it has a name (not just phone in index 0)
+                if len(clean_row) > 0 and clean_row[0] != "":
+                    print(f"Row {idx}: {clean_row}")
+                    printed += 1
+                    if printed >= 30:
+                        break
+        else:
+            print(f"Failed: {response.status} {response.status_text}")
+            
+        browser.close()
+
+if __name__ == "__main__":
+    main()

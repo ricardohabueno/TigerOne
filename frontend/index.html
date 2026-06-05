@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TigerOne - Campanhas Inteligentes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css?v=7">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-content">
+                <h1>Campanhas Inteligentes</h1>
+                <p>Sistema para Salões e Barbearias: TigerOne</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="settings-btn" id="fetchDataBtn" onclick="fetchData()" style="background-color: #1890ff; color: white; border: none;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Baixar Dados da AVEC
+                </button>
+                <button class="settings-btn" id="triggerMotorBtn" onclick="triggerAll()" style="background-color: #ff4d4f; color: white; border: none; font-weight: bold;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    DISPARAR TODAS
+                </button>
+                <button class="settings-btn" id="globalSettingsBtn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    Integrações
+                </button>
+            </div>
+        </header>
+
+        <main class="board-container">
+            <div class="board-header">
+                <div class="col-toggle">Status</div>
+                <div class="col-name">Mensagem</div>
+                <div class="col-date">Último Envio</div>
+                <div class="col-date">Próximo Envio</div>
+                <div class="col-actions">Ações</div>
+            </div>
+
+            <!-- Grupos de Campanhas renderizados dinamicamente -->
+            <div id="campaignGroups"></div>
+
+        </main>
+    </div>
+
+    <!-- Modal Configurações Globais -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Configurações de Integração</h2>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label for="avecUsername">E-mail de Acesso (Avec)</label>
+                    <input type="email" id="avecUsername" placeholder="seuemail@salao.com">
+                </div>
+                <div class="form-group">
+                    <label for="avecPassword">Senha (Avec)</label>
+                    <input type="password" id="avecPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="avecSalonId">ID do Salão (Avec)</label>
+                    <input type="text" id="avecSalonId" placeholder="Ex: 4053" required>
+                </div>
+                <button type="submit" class="save-btn">Salvar Configurações Globais</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Configuração -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <h2 id="configModalTitle">Configurações da Campanha</h2>
+            <form id="configForm">
+                <input type="hidden" id="configCampaignId">
+                
+                <div class="form-group">
+                    <label for="wizebotUrl">URL do Webhook (Wizebot)</label>
+                    <input type="url" id="wizebotUrl" placeholder="https://api.wizebot.com/..." required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="avecReportUrl">URL Relatório Avec (XHR API Link)</label>
+                    <input type="url" id="avecReportUrl" placeholder="https://admin.avec.beauty/admin/relatorios/listar?..." required>
+                </div>
+                
+                <div class="form-group">
+                    <p style="font-size: 13px; color: #555; background: #f9f9f9; padding: 10px; border-radius: 4px; border-left: 3px solid #ff4b4b;">
+                        <strong>Regra de Data da Campanha:</strong> <span id="configRuleText"></span><br>
+                        <span style="font-size: 11px; color: #888;">(Calculada automaticamente pelo sistema todos os dias)</span>
+                    </p>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="closeConfigModal()">Cancelar</button>
+                    <button type="submit" class="btn-save">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Logs -->
+    <div id="logModal" class="modal">
+        <div class="modal-content log-modal-content">
+            <h2 id="logModalTitle">Logs da Campanha</h2>
+            <pre id="logContent" style="background:#f4f4f4; padding:15px; border-radius:5px; max-height:400px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:12px; margin-bottom:20px;"></pre>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeLogModal()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/app.js?v=7"></script>
+</body>
+</html>
