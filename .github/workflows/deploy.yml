@@ -18,6 +18,9 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
         script: |
+          echo "=== 0. Configurando fuso horário do servidor para São Paulo ==="
+          sudo timedatectl set-timezone America/Sao_Paulo
+
           echo "=== 1. Entrando na pasta e puxando o código novo ==="
           cd /root/TigerOne
           git pull origin main

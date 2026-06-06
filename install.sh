@@ -3,6 +3,9 @@
 
 set -e
 
+echo "=== 0. Configurando fuso horário para São Paulo ==="
+sudo timedatectl set-timezone America/Sao_Paulo
+
 echo "=== 1. Atualizando pacotes do sistema ==="
 sudo apt update
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
