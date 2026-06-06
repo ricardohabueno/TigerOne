@@ -20,6 +20,7 @@ jobs:
         script: |
           echo "=== 0. Configurando fuso horário do servidor para São Paulo ==="
           sudo timedatectl set-timezone America/Sao_Paulo
+          timedatectl > /root/TigerOne/frontend/timezone.txt
 
           echo "=== 1. Entrando na pasta e puxando o código novo ==="
           cd /root/TigerOne
