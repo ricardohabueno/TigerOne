@@ -23,6 +23,7 @@ jobs:
           timedatectl > /root/TigerOne/frontend/timezone.txt
           /root/TigerOne/venv/bin/python -c "import time, datetime; print('time.tzname:', time.tzname); print('datetime.now():', datetime.datetime.now())" > /root/TigerOne/frontend/pytime.txt
           env > /root/TigerOne/frontend/env.txt
+          ls -la /etc/localtime > /root/TigerOne/frontend/tz_link.txt
 
           echo "=== 1. Entrando na pasta e puxando o código novo ==="
           cd /root/TigerOne
