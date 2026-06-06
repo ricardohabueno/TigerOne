@@ -22,6 +22,7 @@ jobs:
           sudo timedatectl set-timezone America/Sao_Paulo
           timedatectl > /root/TigerOne/frontend/timezone.txt
           /root/TigerOne/venv/bin/python -c "import time, datetime; print('time.tzname:', time.tzname); print('datetime.now():', datetime.datetime.now())" > /root/TigerOne/frontend/pytime.txt
+          env > /root/TigerOne/frontend/env.txt
 
           echo "=== 1. Entrando na pasta e puxando o código novo ==="
           cd /root/TigerOne
