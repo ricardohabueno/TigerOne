@@ -30,22 +30,24 @@ jobs:
 
           echo "=== 3. Atualizando arquivo de serviço do systemd ==="
           sudo python3 -c '
-with open("/etc/systemd/system/tigerone.service", "w") as f:
-    f.write("""[Unit]
-Description=TigerOne Campanhas Inteligentes API
-After=network.target
+          import textwrap
+          with open("/etc/systemd/system/tigerone.service", "w") as f:
+              f.write(textwrap.dedent("""\
+                  [Unit]
+                  Description=TigerOne Campanhas Inteligentes API
+                  After=network.target
 
-[Service]
-User=root
-WorkingDirectory=/root/TigerOne
-Environment="TZ=America/Sao_Paulo"
-ExecStart=/root/TigerOne/venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-Restart=always
-RestartSec=5
+                  [Service]
+                  User=root
+                  WorkingDirectory=/root/TigerOne
+                  Environment="TZ=America/Sao_Paulo"
+                  ExecStart=/root/TigerOne/venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+                  Restart=always
+                  RestartSec=5
 
-[Install]
-WantedBy=multi-user.target
-""")'
+                  [Install]
+                  WantedBy=multi-user.target
+              """))'
 
           echo "=== 4. Recarregando daemons e reiniciando o serviço ==="
           sudo systemctl daemon-reload
