@@ -29,8 +29,9 @@ jobs:
           ./venv/bin/pip install -r requirements.txt
 
           echo "=== 3. Atualizando arquivo de serviço do systemd ==="
-          sudo bash -c 'cat > /etc/systemd/system/tigerone.service <<EOF
-[Unit]
+          sudo python3 -c '
+with open("/etc/systemd/system/tigerone.service", "w") as f:
+    f.write("""[Unit]
 Description=TigerOne Campanhas Inteligentes API
 After=network.target
 
@@ -44,7 +45,7 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-EOF'
+""")'
 
           echo "=== 4. Recarregando daemons e reiniciando o serviço ==="
           sudo systemctl daemon-reload
