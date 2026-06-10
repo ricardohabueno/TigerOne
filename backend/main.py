@@ -15,6 +15,27 @@ from backend.engine.webhook import WebhookSender
 
 models.Base.metadata.create_all(bind=engine)
 
+# Database migrations for new columns
+def run_migrations():
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    try:
+        columns = [col['name'] for col in inspector.get_columns('logs')]
+        with engine.begin() as conn:
+            if 'conversion_status' not in columns:
+                conn.execute(text("ALTER TABLE logs ADD COLUMN conversion_status VARCHAR DEFAULT 'PENDING'"))
+            if 'converted_at' not in columns:
+                conn.execute(text("ALTER TABLE logs ADD COLUMN converted_at DATETIME"))
+            if 'conversion_appointment_date' not in columns:
+                conn.execute(text("ALTER TABLE logs ADD COLUMN conversion_appointment_date VARCHAR"))
+            if 'conversion_value' not in columns:
+                conn.execute(text("ALTER TABLE logs ADD COLUMN conversion_value FLOAT"))
+            print("Database migrations applied successfully.")
+    except Exception as e:
+        print(f"Error checking or running database migrations: {e}")
+
+run_migrations()
+
 app = FastAPI(title="TigerOne Campanhas Inteligentes API")
 
 @app.on_event("startup")
@@ -57,7 +78,59 @@ class SettingsUpdate(BaseModel):
 # API Endpoints
 @app.get("/api/campaigns")
 def get_campaigns(db: Session = Depends(get_db)):
-    return db.query(models.Campaign).all()
+    campaigns = db.query(models.Campaign).all()
+    result = []
+    for c in campaigns:
+        # Campanhas elegíveis para conversão
+        track_conversions = c.id in (1, 5, 6, 7, 8, 9)
+        
+        sent_count = db.query(models.Log).filter(
+            models.Log.campaign_id == c.id,
+            models.Log.status == "SUCCESS"
+        ).count()
+        
+        converted_count = db.query(models.Log).filter(
+            models.Log.campaign_id == c.id,
+            models.Log.conversion_status == "CONVERTED"
+        ).count()
+        
+        conversion_rate = round((converted_count / sent_count * 100), 1) if sent_count > 0 else 0.0
+        
+        from sqlalchemy import func
+        revenue_recovered = db.query(func.sum(models.Log.conversion_value)).filter(
+            models.Log.campaign_id == c.id,
+            models.Log.conversion_status == "CONVERTED"
+        ).scalar() or 0.0
+        
+        c_dict = {
+            "id": c.id,
+            "name": c.name,
+            "category": c.category,
+            "is_active": c.is_active,
+            "message_template": c.message_template,
+            "wizebot_webhook_url": c.wizebot_webhook_url,
+            "avec_report_url": c.avec_report_url,
+            "extraction_offset_days": c.extraction_offset_days,
+            "extraction_end_offset_days": c.extraction_end_offset_days,
+            "schedule_slots": c.schedule_slots,
+            "include_schedule_fields": c.include_schedule_fields,
+            "test_name": c.test_name,
+            "test_phone": c.test_phone,
+            "test_date": c.test_date,
+            "test_time": c.test_time,
+            "last_sent": c.last_sent,
+            "days_condition": c.days_condition,
+            "last_run": c.last_run,
+            "last_log": c.last_log,
+            "next_sent": c.next_sent,
+            "track_conversions": track_conversions,
+            "sent_count": sent_count,
+            "converted_count": converted_count,
+            "conversion_rate": conversion_rate,
+            "revenue_recovered": revenue_recovered
+        }
+        result.append(c_dict)
+    return result
 
 @app.post("/api/campaigns/{campaign_id}/toggle")
 def toggle_campaign(campaign_id: int, toggle: CampaignToggle, db: Session = Depends(get_db)):
@@ -73,7 +146,42 @@ def get_campaign_logs(id: int, db: Session = Depends(get_db)):
     campaign = db.query(models.Campaign).filter(models.Campaign.id == id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    return {"status": "success", "log": campaign.last_log or "Nenhum log disponível."}
+        
+    base_log = campaign.last_log or "Nenhum log disponível."
+    
+    # Adiciona lista de convertidos nos logs
+    if id in (1, 5, 6, 7, 8, 9):
+        conversions = db.query(models.Log).filter(
+            models.Log.campaign_id == id,
+            models.Log.conversion_status == 'CONVERTED'
+        ).order_by(models.Log.converted_at.desc()).all()
+        
+        if conversions:
+            from datetime import timezone
+            from zoneinfo import ZoneInfo
+            
+            conv_lines = ["\n\n=== RETORNOS CONFIRMADOS (CONVERSÕES) ==="]
+            for c in conversions:
+                try:
+                    utc_dt = c.created_at.replace(tzinfo=timezone.utc)
+                    local_dt = utc_dt.astimezone(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y %H:%M")
+                except Exception:
+                    local_dt = c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "N/A"
+                    
+                date_booked = c.conversion_appointment_date or "N/A"
+                conv_lines.append(f"- {c.client_name} ({c.client_phone}): Agendou para {date_booked} (Notificado em {local_dt})")
+            base_log += "\n".join(conv_lines)
+            
+    return {"status": "success", "log": base_log}
+
+@app.post("/api/conversions/refresh")
+def refresh_conversions(db: Session = Depends(get_db)):
+    def run_check():
+        from backend.jobs.scheduler import check_campaign_conversions
+        check_campaign_conversions()
+        
+    threading.Thread(target=run_check, daemon=True).start()
+    return {"message": "Atualização das conversões iniciada em background."}
 
 @app.post("/api/campaigns/{campaign_id}/config")
 def config_campaign(campaign_id: int, config: CampaignConfig, db: Session = Depends(get_db)):

@@ -382,3 +382,16 @@ input:checked + .slider:before { transform: translateX(20px); }
 .btn-save:hover {
     background-color: #389e0d;
 }
+
+.conversion-stats {
+    margin-top: 5px;
+    font-size: 11px;
+    color: #52c41a;
+    background: rgba(82, 196, 26, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    width: fit-content;
+    border: 1px dashed rgba(82, 196, 26, 0.3);
+    font-family: 'Inter', sans-serif;
+}

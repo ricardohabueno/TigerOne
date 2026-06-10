@@ -287,7 +287,8 @@ def run_campaigns(slot_hour=None, is_dry_run=False):
                 db.commit()
 
             except Exception as e:
-                error_msg = f"Erro no job: {repr(e)}"
+                err_str = repr(e).encode('ascii', 'replace').decode('ascii')
+                error_msg = f"Erro no job: {err_str}"
                 print(error_msg)
                 log_messages.append(error_msg)
                 campaign.last_log = "\n".join(log_messages)
@@ -298,9 +299,142 @@ def run_campaigns(slot_hour=None, is_dry_run=False):
     finally:
         db.close()
 
+def check_campaign_conversions(db=None):
+    """
+    Roda diariamente (ex: às 20h) para verificar se clientes notificados
+    pelas campanhas de recuperação ou aniversariantes agendaram retorno.
+    """
+    print(f"[{datetime.now()}] Iniciando cruzamento de conversões...")
+    is_local_db_session = False
+    if db is None:
+        db = SessionLocal()
+        is_local_db_session = True
+        
+    try:
+        settings = db.query(Settings).first()
+        if not settings or not settings.avec_username or not settings.avec_password:
+            print("Credenciais da Avec não preenchidas. Abortando verificação de conversões.")
+            return
+
+        avec_client = AvecClient(settings.avec_username, settings.avec_password)
+        
+        # Define período de busca: Hoje até Hoje + 30 dias
+        start_date = datetime.now().strftime("%d/%m/%Y")
+        end_date = (datetime.now() + timedelta(days=30)).strftime("%d/%m/%Y")
+        
+        salon_id = settings.avec_salon_id or "4053"
+        api_url = f"https://admin.avec.beauty/admin/relatorios/listar?relatorio=0051&salao={salon_id}&site=&profissional_id="
+        visual_url = "https://admin.avec.beauty/admin/relatorio/0051"
+        
+        print(f"Buscando agenda de {start_date} até {end_date}...")
+        aadata = avec_client.fetch_report(visual_url, api_url, start_date, end_date)
+        if not aadata:
+            print("Nenhum dado retornado da Avec para a agenda de 30 dias.")
+            return
+
+        # Normaliza buscando campos de agendamento (avecreserva, avechorario)
+        normalized_bookings = Normalizer.process_report_data(aadata, include_schedule_fields=True)
+        print(f"Total de {len(normalized_bookings)} agendamentos normalizados para os próximos 30 dias.")
+        
+        # Agrupa os agendamentos futuros por telefone
+        future_bookings_map = {}
+        from zoneinfo import ZoneInfo
+        from datetime import timezone
+        
+        for booking in normalized_bookings:
+            phone = booking["telefone"]
+            raw_date = booking.get("avecreserva", "")
+            raw_time = booking.get("avechorario", "")
+            
+            try:
+                booking_dt = datetime.strptime(f"{raw_date} {raw_time}", "%d/%m/%Y %H:%M")
+            except Exception:
+                continue
+                
+            # Mantém o agendamento mais antigo (primeiro retorno) na lista
+            if phone not in future_bookings_map or booking_dt < future_bookings_map[phone]["datetime"]:
+                future_bookings_map[phone] = {
+                    "datetime": booking_dt,
+                    "date_str": raw_date,
+                    "time_str": raw_time
+                }
+                
+        # Campanhas elegíveis: 1 (Aniversariantes), 5, 6, 7, 8, 9 (Recuperação)
+        campaign_ids = [1, 5, 6, 7, 8, 9]
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        # Busca logs de sucesso com status PENDING nos últimos 30 dias
+        pending_logs = db.query(Log).filter(
+            Log.campaign_id.in_(campaign_ids),
+            Log.status == "SUCCESS",
+            Log.conversion_status == "PENDING",
+            Log.created_at >= thirty_days_ago
+        ).all()
+        
+        # Agrupa logs pendentes por telefone
+        logs_by_phone = {}
+        for log in pending_logs:
+            phone = log.client_phone
+            if phone not in logs_by_phone:
+                logs_by_phone[phone] = []
+            logs_by_phone[phone].append(log)
+            
+        conversions_count = 0
+        
+        for phone, client_logs in logs_by_phone.items():
+            if phone not in future_bookings_map:
+                continue
+                
+            # Ordena os logs por data de envio decrescente (mais recente primeiro)
+            client_logs.sort(key=lambda x: x.created_at, reverse=True)
+            
+            latest_log = client_logs[0]
+            booking_info = future_bookings_map[phone]
+            booking_dt = booking_info["datetime"]
+            
+            # Converte created_at (UTC) para local (São Paulo) para comparação justa
+            try:
+                utc_dt = latest_log.created_at.replace(tzinfo=timezone.utc)
+                local_dt = utc_dt.astimezone(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
+            except Exception:
+                local_dt = latest_log.created_at
+                
+            # Verifica se o agendamento é posterior ao disparo da mensagem
+            if booking_dt > local_dt:
+                # O log mais recente é CONVERTIDO
+                latest_log.conversion_status = "CONVERTED"
+                latest_log.converted_at = datetime.now()
+                latest_log.conversion_appointment_date = f"{booking_info['date_str']} {booking_info['time_str']}"
+                latest_log.conversion_value = 130.00
+                conversions_count += 1
+                
+                print(f"Conversão detectada: {latest_log.client_name} ({phone}) agendou para {booking_info['date_str']}")
+                
+                # Qualquer log anterior pendente do mesmo cliente é SUPERADO (SUPERSEDED)
+                for old_log in client_logs[1:]:
+                    old_log.conversion_status = "SUPERSEDED"
+                    
+        if conversions_count > 0:
+            db.commit()
+            print(f"{conversions_count} novas conversões salvas no banco de dados.")
+        else:
+            print("Nenhuma nova conversão detectada.")
+            
+    except Exception as e:
+        err_str = repr(e).encode('ascii', 'replace').decode('ascii')
+        print(f"Erro ao verificar conversões: {err_str}")
+        if 'db' in locals() and db is not None:
+            db.rollback()
+    finally:
+        if is_local_db_session and 'db' in locals():
+            db.close()
+
 def start_scheduler():
     # Roda a cada hora redonda (08:00, 09:00, ..., 22:00)
     for h in range(8, 23):
         scheduler.add_job(run_campaigns, 'cron', hour=h, minute=0, kwargs={"slot_hour": h})
+        
+    # Roda diariamente às 20h para verificar conversões de lembretes e aniversariantes
+    scheduler.add_job(check_campaign_conversions, 'cron', hour=20, minute=0)
         
     scheduler.start()

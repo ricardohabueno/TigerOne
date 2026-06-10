@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from backend.database import Base
@@ -50,5 +50,11 @@ class Log(Base):
     status = Column(String) # SUCCESS / ERROR, SKIPPED
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Rastreamento de Conversão
+    conversion_status = Column(String, default="PENDING") # 'PENDING', 'CONVERTED', 'SUPERSEDED'
+    converted_at = Column(DateTime, nullable=True)
+    conversion_appointment_date = Column(String, nullable=True)
+    conversion_value = Column(Float, nullable=True)
 
     campaign = relationship("Campaign", back_populates="logs")

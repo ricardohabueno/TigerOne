@@ -51,6 +51,15 @@ function renderCampaigns(campaigns) {
                 </div>
             ` : '';
 
+            const conversionStatsHtml = campaign.track_conversions ? `
+                <div class="conversion-stats">
+                    <strong>Envios:</strong> ${campaign.sent_count} | 
+                    <strong>Retornos:</strong> ${campaign.converted_count} 
+                    <span style="color: #ff4d4f; font-weight: bold; margin-left: 2px; margin-right: 2px;">(${campaign.conversion_rate}%)</span> | 
+                    <strong>Faturamento Est.:</strong> R$ ${campaign.revenue_recovered.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </div>
+            ` : '';
+
             row.innerHTML = `
                 <div class="col-toggle">
                     <label class="switch">
@@ -65,6 +74,7 @@ function renderCampaigns(campaigns) {
                         <input type="text" id="testPhone_${campaign.id}" placeholder="Tel (55119...)" value="${campaign.test_phone || ''}" onblur="saveTestData(${campaign.id})" style="flex:1; padding: 4px; font-size: 11px; border: 1px solid #ddd; border-radius: 4px;">
                     </div>
                     ${extraFieldsHtml}
+                    ${conversionStatsHtml}
                 </div>
                 <div class="col-date">${lastSent}</div>
                 <div class="col-date">${nextSent}</div>
@@ -254,6 +264,19 @@ async function fetchData() {
     } catch (error) {
         console.error('Erro:', error);
         alert('Erro ao iniciar extração.');
+    }
+}
+
+async function refreshConversions() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/conversions/refresh`, { method: 'POST' });
+        if (response.ok) {
+            alert('A atualização de conversões foi iniciada. As estatísticas e logs serão atualizados em alguns segundos.');
+            setTimeout(loadCampaigns, 4000);
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar conversões:', error);
+        alert('Erro ao atualizar conversões.');
     }
 }
 

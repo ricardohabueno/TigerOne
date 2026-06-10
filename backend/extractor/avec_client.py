@@ -86,7 +86,8 @@ class AvecClient:
                 return json_data.get("aaData", [])
                 
             except Exception as e:
-                print(f"Erro na extração via Playwright: {repr(e)}")
+                err_str = repr(e).encode('ascii', 'replace').decode('ascii')
+                print(f"Erro na extração via Playwright: {err_str}")
                 raise e
             finally:
                 browser.close()
