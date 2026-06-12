@@ -183,6 +183,24 @@ def refresh_conversions(db: Session = Depends(get_db)):
     threading.Thread(target=run_check, daemon=True).start()
     return {"message": "Atualização das conversões iniciada em background."}
 
+@app.get("/api/campaigns/{campaign_id}/conversions")
+def get_campaign_conversions(campaign_id: int, db: Session = Depends(get_db)):
+    conversions = db.query(models.Log).filter(
+        models.Log.campaign_id == campaign_id,
+        models.Log.conversion_status == 'CONVERTED'
+    ).order_by(models.Log.converted_at.desc()).all()
+    
+    return [
+        {
+            "client_name": c.client_name,
+            "client_phone": c.client_phone,
+            "created_at": c.created_at,
+            "converted_at": c.converted_at,
+            "conversion_appointment_date": c.conversion_appointment_date,
+            "conversion_value": c.conversion_value
+        } for c in conversions
+    ]
+
 @app.post("/api/campaigns/{campaign_id}/config")
 def config_campaign(campaign_id: int, config: CampaignConfig, db: Session = Depends(get_db)):
     campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()

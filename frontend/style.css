@@ -395,3 +395,64 @@ input:checked + .slider:before { transform: translateX(20px); }
     border: 1px dashed rgba(82, 196, 26, 0.3);
     font-family: 'Inter', sans-serif;
 }
+
+/* Estilos para o Relatório de Conversões */
+.modal-content.modal-lg {
+    max-width: 850px;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.report-table th, .report-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.report-table th {
+    background: rgba(0,0,0,0.02);
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.report-table tr:hover {
+    background: rgba(0,0,0,0.01);
+}
+
+.report-table tfoot tr {
+    font-weight: bold;
+    background: rgba(0,0,0,0.03);
+    border-top: 2px solid var(--text-muted);
+}
+
+.report-table .text-right {
+    text-align: right;
+}
+
+.report-table .text-center {
+    text-align: center;
+}
+
+.details-container {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 2px dashed var(--border-color);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.details-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #1a1a1a;
+}

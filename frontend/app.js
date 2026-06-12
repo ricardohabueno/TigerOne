@@ -320,6 +320,18 @@ function setupModal() {
         if (event.target == modal) {
             modal.classList.remove('show');
         }
+        const configModal = document.getElementById('configModal');
+        if (event.target == configModal) {
+            closeConfigModal();
+        }
+        const logModal = document.getElementById('logModal');
+        if (event.target == logModal) {
+            closeLogModal();
+        }
+        const conversionsModal = document.getElementById('conversionsReportModal');
+        if (event.target == conversionsModal) {
+            closeConversionsReport();
+        }
     }
 
     form.onsubmit = async (e) => {
@@ -415,3 +427,110 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+function openConversionsReport() {
+    const tbody = document.getElementById('conversionsReportBody');
+    const tfoot = document.getElementById('conversionsReportFooter');
+    tbody.innerHTML = '';
+    tfoot.innerHTML = '';
+    
+    // Oculta área de detalhes inicialmente
+    document.getElementById('conversionDetailsContainer').style.display = 'none';
+    
+    // Filtra campanhas monitoradas de conversão
+    const trackedCampaigns = allCampaigns.filter(c => c.track_conversions);
+    
+    let totalSent = 0;
+    let totalConverted = 0;
+    let totalRevenue = 0;
+    
+    trackedCampaigns.forEach(c => {
+        const tr = document.createElement('tr');
+        
+        const sent = c.sent_count || 0;
+        const converted = c.converted_count || 0;
+        const rate = c.conversion_rate || 0;
+        const revenue = c.revenue_recovered || 0;
+        
+        totalSent += sent;
+        totalConverted += converted;
+        totalRevenue += revenue;
+        
+        tr.innerHTML = `
+            <td><strong>${c.name}</strong></td>
+            <td class="text-center">${sent}</td>
+            <td class="text-center">${converted}</td>
+            <td class="text-center" style="color: #ff4d4f; font-weight: bold;">(${rate}%)</td>
+            <td class="text-right">R$ ${revenue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td class="text-center">
+                <button class="btn btn-config" onclick="showConversionDetails(${c.id}, '${c.name}')" style="padding: 4px 8px; font-size: 11px;">Visualizar</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    const overallRate = totalSent > 0 ? ((totalConverted / totalSent) * 100).toFixed(1) : "0.0";
+    
+    tfoot.innerHTML = `
+        <tr>
+            <td><strong>Total Geral</strong></td>
+            <td class="text-center">${totalSent}</td>
+            <td class="text-center">${totalConverted}</td>
+            <td class="text-center" style="color: #ff4d4f; font-weight: bold;">(${overallRate}%)</td>
+            <td class="text-right">R$ ${totalRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td></td>
+        </tr>
+    `;
+    
+    document.getElementById('conversionsReportModal').style.display = 'block';
+}
+
+function closeConversionsReport() {
+    document.getElementById('conversionsReportModal').style.display = 'none';
+}
+
+async function showConversionDetails(campaignId, campaignName) {
+    const container = document.getElementById('conversionDetailsContainer');
+    const title = document.getElementById('conversionDetailsTitle');
+    const tbody = document.getElementById('conversionDetailsBody');
+    
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Carregando detalhes...</td></tr>';
+    container.style.display = 'block';
+    
+    title.textContent = `Clientes Convertidos: ${campaignName}`;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/campaigns/${campaignId}/conversions`);
+        const conversions = await response.json();
+        
+        tbody.innerHTML = '';
+        if (conversions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nenhuma conversão registrada para esta campanha.</td></tr>';
+            return;
+        }
+        
+        conversions.forEach(c => {
+            const tr = document.createElement('tr');
+            
+            const notifiedDate = c.created_at ? new Date(c.created_at).toLocaleString('pt-BR') : 'N/A';
+            const appointmentDate = c.conversion_appointment_date || 'N/A';
+            const value = c.conversion_value || 0;
+            
+            tr.innerHTML = `
+                <td><strong>${c.client_name}</strong></td>
+                <td>${c.client_phone}</td>
+                <td>${notifiedDate}</td>
+                <td>${appointmentDate}</td>
+                <td class="text-right">R$ ${value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        // Rolagem suave até a área de detalhes
+        container.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        
+    } catch (e) {
+        console.error("Erro ao buscar detalhes de conversões:", e);
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="color: #ff4d4f;">Erro ao carregar detalhes.</td></tr>';
+    }
+}
